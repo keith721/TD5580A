@@ -115,6 +115,7 @@ class TD5580A{
     void play();                 // 0x0D Play
     void pause();                // 0x0E Pause
     void playF(byte f, byte n);  // 0x0F Play Folder f File n
+    void playF(byte f);          // Play all files in the f folder
                                  // 0x10 Amplification Settings (NOT SUPPORTED)                    
     void playAllLoop();          // 0x11 Play all loops
     void setFolder(byte n);      // 0x12 Specify the MP3 folder (MP3 or ADVERT)
@@ -130,15 +131,15 @@ class TD5580A{
 
     void playSL(byte f, byte n); // Play Single loop play n file by name from f folder.
     
-    void playF(byte f);          // Play all files in the f folder
 
-    // Query commands
-    void qPlaying();   // query the file currently playing
-    void qStatus();    // query the status
-    void qVolume();    // query the volume
-    void qFTracks();   // query the number of track folders
-    void qTTracks();   // query the total of tracks
-    void qTFolders();  // query the number of folders
+    // Query commands - all return uint16_t numeric values
+    //
+    uint16_t qPlaying();   // query the file currently playing
+    uint16_t qStatus();    // query the status
+    uint16_t qVolume();    // query the volume
+    uint16_t qFTracks();   // query the number of track folders
+    uint16_t qTTracks();   // query the total of tracks
+    uint16_t qTFolders();  // query the number of folders
 
     void sleep();     // Send sleep command
     void wakeup();    // Send wake up command

@@ -217,35 +217,43 @@ void TD5580A::setPowerOnVol(byte v) {
   sendCommand(CMD_PWR_ON_VOL_MEM, v);
 }
 
+/*
+ * Query functions - return uint16_t numeric values
+ */
 
 // Query player status
 //
-void TD5580A::qStatus() {
+uint16_t TD5580A::qStatus() {
   sendCommand(QRY_STATUS);
+  return MP3Answer();
 }
 
 // Query player volume
 //
-void TD5580A::qVolume() {
+uint16_t TD5580A::qVolume() {
   sendCommand(QRY_VOLUME);
+  return MP3Answer();
 }
 
 // Query number of tracks in the current folder
 //
-void TD5580A::qFTracks() {
+uint16_t TD5580A::qFTracks() {
   sendCommand(CMD_QUERY_FLDR_TRACKS);
+  return MP3Answer();
 }
 
 // Query total number of tracks
 //
-void TD5580A::qTTracks() {
+uint16_t TD5580A::qTTracks() {
   sendCommand(CMD_QUERY_TOT_TRACKS);
+  return MP3Answer();
 }
 
 // Query total number of folders
 //
-void TD5580A::qTFolders() {
+uint16_t TD5580A::qTFolders() {
   sendCommand(CMD_QUERY_FLDR_COUNT);
+  return MP3Answer();
 }
 
 // Put player in low-power (sleep) mode
@@ -262,14 +270,14 @@ void TD5580A::wakeup() {
 }
 
 // Send a one byte command with no data
-// This zero files both data bytes
+// This zero fills both data bytes
 //
 void TD5580A::sendCommand(byte command) {
   sendCommand(command, 0, 0);
 }
 
 // Send a one byte command with one byte of data
-// This zero fills the second data byte.
+// This zero fills the first data byte.
 //
 void TD5580A::sendCommand(byte command, byte dat2) {
   sendCommand(command, 0, dat2);
@@ -299,7 +307,8 @@ void TD5580A::sendCommand(byte command, byte dat1, byte dat2) {
   Send_buf[7] = 0xEF;    // END  byte constant
 
 /* Checksum bytes 
- *         cksum = 0 - (   ADDR     +     LEN     +     CMD     +     ACK     +   DATA 1    + DATA 2 );  */
+ *         cksum = 0 - (   ADDR     +     LEN     +     CMD     +     ACK     +   DATA 1    + DATA 2 ); 
+ */
   //uint16_t cksum = 0 - (Send_buf[1] + Send_buf[2] + Send_buf[3] + Send_buf[4] + Send_buf[5] + Send_buf[6]);
   //Send_buf[7] = lowByte(cksum);
   //Send_buf[8] = highByte(cksum);
@@ -307,12 +316,12 @@ void TD5580A::sendCommand(byte command, byte dat1, byte dat2) {
   for(int i=0; i<8; i++)
   {
     serial->write(Send_buf[i]) ;
-    mp3send+=sbyte2hex(Send_buf[i]);
+    mp3send += sbyte2hex(Send_buf[i]);
   }
 
   if (_showDebugMessages) {
      Serial.print("Sending: ");
-     Serial.println(mp3send); // watch what are we sending
+     Serial.println(mp3send);     // display hex bytes sent to DFPlayer
   }
 
   // #ifndef NO_SERIALMP3_DELAY
@@ -329,13 +338,14 @@ uint8_t val;
 
 
 
-/**********************************************************************************/
-/* funcion : MP3Answer() devuelve el bit correspondiente a la solicitud de estatus*/
-/* Valores que devuelve MP3Answer(); 
+/******************************************************************
+ * function : MP3Answer()                                         *
+ * purpose  : returns the bit corresponding to the status request *
+ * Values returned in MP3Answer();                                *
  * 0x0001 -> memory card insert
  * 0x0002 -> Complete play
  * 0x0003 -> Error
- * 0x0004 -> Data recive correct
+ * 0x0004 -> Data receive correct
  *  -> status
  *  - 0x000A-> stopped
  *  - 0x000B-> playing  
@@ -347,41 +357,81 @@ uint8_t val;
  * 0x0009 -> folder count
  * 
  */
-/* a15 a14 a13 a12 a11 a10 a9 a8 a7 a6 a5 a4 a3 a2 a1 a0 */
 
 /* Misael Reyes */
 uint16_t TD5580A::MP3Answer() {
+//
+//                     HEAD ADDR LEN RESP  ACK  ??? Dat Ck1  Ck2  END
 // Response Structure  0x7E 0xFF 0x06 RSP 0x00 0x00 DAT 0xFE 0xBA 0xEF
 //
 // RSP Response code
 // DAT Response additional data
   
-uint16_t decodedMP3Answer = 0x0000;
+  uint16_t decodedMP3Answer = 0x0000;     // numeric value returned
+  String   answer           = sanswer();  // read from DFPlayer serial port
+  String   received         = "";         // hex bytes received from DFPlayer
   
-String answer = sanswer();
-
-   
-
-    switch (ansbuf[3])
-    {
+  /*
+   * Load different numeric values based
+   *  upon which call is being answered.
+   *  That is indicated by byte 4, ansbuf[3]
+   */
+  switch (ansbuf[3])
+  {
+  /*
+    * 0x3A == Device insertion (SD / USB / Flash device)
+    * 0x3B == Device unplugged
+    * 0x3C == UDISK Playback Completed
+    * 0x3D == SD card playback completed
+    * 0x3E == Flash playback completed
+    * 0x3F == Send initialization parameters (set player status)
+    */
     case 0x3A:
-      decodedMP3Answer = 0x0001;  // |= (1<<0);//+= " -> Memory card inserted.";
+      decodedMP3Answer = 0x0001;
+      Serial.println ("\nMemory card inserted.");
       break;
 
-   case 0x3B:
-      decodedMP3Answer = 0x0011;  // |= (1<<0);//+= " -> Memory card inserted.";
+    case 0x3B:
+      decodedMP3Answer = 0x0002;
+      Serial.println("\nDevice unplugged.");
+      break;
+
+    case 0x3C:
+      decodedMP3Answer = 0x0003;
+      Serial.println("\nDevice unplugged.");
       break;
 
     case 0x3D:
-      decodedMP3Answer = 0x0002;  // |= (1<<1); //+= " -> Completed play num " + String(ansbuf[6], DEC);
+      decodedMP3Answer = 0x0004;
+      Serial.println("\nUDISK Playback Completed");
       break;
 
+    case 0x3E:
+      decodedMP3Answer = 0x0005;
+      Serial.println("\nFlash Playback Completed");
+      break;
+
+    case 0x3F:
+      decodedMP3Answer = 0x0006;
+      Serial.println("\nSent initialization parameters");
+      break;
+
+    /*
+     * 0x40 == Return error, request resend
+     * 0x41 == Response
+     * 0x42 == Query current status
+     * 0x43 == Query the current volume
+     * 0x44 == Query the current EQ
+     * 0x45 == Query the current playback mode
+     */
     case 0x40:
-      decodedMP3Answer = 0x0003;  // |= (1<<2); //+= " -> Error";
+      decodedMP3Answer = 0x0007;
+      Serial.println("\nError, resend!");
       break;
 
     case 0x41:    
-      decodedMP3Answer = 0x0004;  // |= (1<<3); //+= " -> Data recived correctly. ";
+      decodedMP3Answer = 0x0008;
+      Serial.println("\nResponse received.");
       break;
 
     case 0x42:	     
@@ -464,43 +514,65 @@ String TD5580A::sanswer(void) {
   //  read while something readed and it's not the end "0xEF"
 
   byte b;
-  String mp3answer = "";                // Answer from the Serial3.
-  int iansbuf = 0;
+  String mp3answer = "";                // Answer from the DFPlayer.
+
+  int iansidx = 0;
 
   while (serial->available() ) {        // && b!=0xef
    //do{
     b = serial->read();
-
-    if (b == 0x7E) {  // if there are "0x7E" it's a beginning.
-      iansbuf = 0;    //  ansbuf index to zero.
+  
+    /*
+     * 0x7E == Start byte
+     *   reset ansbuf index to zero
+     *   reset string response to null
+     */
+    if (b == 0x7E) {
+      iansidx = 0;
       mp3answer = "";  
     }
 
-    ansbuf[iansbuf] = b;
-    mp3answer += sbyte2hex(ansbuf[iansbuf]);
-    iansbuf++;        //  increase this index.
+    /*
+     * Add each byte received to ansbuf
+     * and also to the string response
+     */
+    ansbuf[iansidx] = b;
+    mp3answer += sbyte2hex(ansbuf[iansidx]);
+    iansidx++;
 
-	if (b == 0x3A) {
-	    ansbuf[3] = 0x3a;
-	}
+    /*
+     *  0x3A .. 0x3F
+     *
+     * 0x3A == Device insertion (SD / USB / Flash device)
+     * 0x3B == Device unplugged
+     * 0x3C == UDISK Playback Completed
+     * 0x3D == SD card playback completed
+     * 0x3E == Flash playback completed
+     * 0x3F == Send initialization parameters (set player status)
+     */
+    if ( b >= 0x3A && b <= 0x3F ) {
+      ansbuf[3]=b;
+    }
 
-	if (b == 0x3b) {
-	    ansbuf[3] = 0x3b;
-	}
-
-	if (b == 0x3D) {
-	    ansbuf[3] = 0x3d;	
-	}
-
-	if (b == 0xef) {
-	  // Serial.print("ansbuf[3]:0x");
-    // Serial.println(ansbuf[3],HEX);
-	  // Serial.print("ansbuf[6]:0x");
-	  // Serial.println(ansbuf[6],HEX);
-	}
+    /*
+     * 0xEF == End byte
+     */
+    if (b == 0xef) {
+      // Serial.print("ansbuf[3]:0x");
+      // Serial.println(ansbuf[3],HEX);
+      // Serial.print("ansbuf[6]:0x");
+      // Serial.println(ansbuf[6],HEX);
+    }
    //}while(b != 0xEF);
    // while there are something to read and it's not the end "0xEF"
   }
- 
+
+  /*
+   * Debug - print output from DFPlayer device
+   */
+  if (_showDebugMessages) {
+    Serial.println("mp3answer = " + String(mp3answer));
+  }
+
   return mp3answer;
  }
