@@ -5,7 +5,7 @@ ESP32 Arduino library for TD5580A chip used in MP3 player devices
 2. Tuda Semi TD5580A reference PDF  http://www.tudasemi.com/static/upload/file/20240905/1725499313437991.pdf
 3. Useful guide to common MP3 player devices  https://bigsoundbank.com/articles/df-player-mini-f104.html
 
-This is a WORK IN PROGRESS.  Commands are currently being tested.  Queries are COMPLETELY untested.
+This is a WORK IN PROGRESS.  Commands are currently being tested. 
 
 ```
 rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
